@@ -1,5 +1,5 @@
 // Caches the app shell so it installs and opens offline; network-first so updates arrive.
-const CACHE = 'radar-v1';
+const CACHE = 'radar-v2';
 const FILES = ['./', 'index.html', 'manifest.json', 'icon-192.png', 'icon-512.png'];
 self.addEventListener('install', e => { e.waitUntil(caches.open(CACHE).then(c => c.addAll(FILES))); self.skipWaiting(); });
 self.addEventListener('activate', e => {

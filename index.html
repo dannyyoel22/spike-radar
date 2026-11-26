@@ -4,12 +4,13 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Deriv Spike Radar</title>
-<meta name="theme-color" content="#0b1219">
+<meta name="theme-color" content="#131722">
 <link rel="manifest" href="manifest.json">
 <link rel="icon" href="icon-192.png">
 <link rel="apple-touch-icon" href="icon-192.png">
 <style>
-:root{--bg:#0b1219;--panel:#111c26;--line:#1d2c39;--text:#d8e7ef;--muted:#6c8796;--blue:#3fb6ff;--red:#ff4d4d;--green:#1f8a4c;--warn:#e0a83a}
+:root{--bg:#0b1219;--panel:#111c26;--line:#1d2c39;--text:#d8e7ef;--muted:#6c8796;--blue:#3fb6ff;--red:#ff4d4d;--warn:#e0a83a;
+  --tv-bg:#131722;--tv-grid:#1e222d;--tv-axis:#787b86;--tv-up:#26a69a;--tv-down:#ef5350;--tv-mark:#ff9800}
 *{box-sizing:border-box}
 body{margin:0;background:var(--bg);color:var(--text);font:15px/1.4 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;padding:env(safe-area-inset-top) 0 env(safe-area-inset-bottom)}
 main{max-width:1100px;margin:0 auto;padding:12px 16px 24px;display:grid;gap:12px}
@@ -27,13 +28,18 @@ select,input{width:100%;background:var(--bg);color:var(--text);border:1px solid 
 button{background:#1a2a37;color:var(--text);border:1px solid var(--line);border-radius:8px;padding:10px 14px;font:inherit;min-height:44px;cursor:pointer}
 button.primary{background:var(--blue);color:#04131d;border-color:var(--blue);font-weight:600}
 button.stop{background:var(--red);border-color:var(--red);color:#fff;font-weight:600}
+#marketsBtn{text-align:left;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 button:focus-visible,select:focus-visible,input:focus-visible{outline:2px solid var(--blue);outline-offset:2px}
 details summary{cursor:pointer;color:var(--muted);min-height:32px}
 details .controls{margin-top:8px}
 .hint{font-size:12px;color:var(--muted);margin:6px 0 0}
-#chartBox{padding:0;overflow:hidden}
-#chartHead{display:flex;justify-content:space-between;padding:10px 12px 0;font-weight:600}
-#chart{display:block;width:100%;height:300px;touch-action:pan-y}
+#chartBox{padding:0;overflow:hidden;background:var(--tv-bg);border-color:var(--tv-grid)}
+#chartHead{display:flex;flex-wrap:wrap;align-items:center;gap:4px 12px;padding:8px 10px 0}
+#chartName{font-weight:600;color:#d1d4dc}
+#ohlc{font:12px Consolas,monospace}
+.zoom{margin-left:auto;display:flex;gap:4px}
+.zoom button{min-height:32px;min-width:36px;padding:2px 8px;background:var(--tv-grid);border-color:var(--tv-grid)}
+#chart{display:block;width:100%;height:320px;touch-action:pan-y}
 #markets{display:grid;gap:6px}
 .row{display:grid;grid-template-columns:1fr auto;gap:2px 10px;padding:8px 10px;border-radius:8px;border:1px solid transparent;cursor:pointer;background:var(--bg)}
 .row.sel{border-color:var(--blue)}
@@ -41,7 +47,15 @@ details .controls{margin-top:8px}
 .row .c,.row .e{font-size:12px;color:var(--muted)}.row .e{text-align:right}
 .row .e.spike{color:var(--red);font-weight:600}
 #log{font:12px/1.5 Consolas,monospace;max-height:180px;overflow:auto;white-space:pre-wrap;margin:0}
-@media (min-width:760px){.controls{grid-template-columns:repeat(5,1fr)}#chart{height:360px}#markets{grid-template-columns:repeat(auto-fill,minmax(240px,1fr))}}
+dialog{background:var(--panel);color:var(--text);border:1px solid var(--line);border-radius:12px;padding:0;width:min(420px,calc(100vw - 32px));max-height:min(640px,calc(100vh - 48px))}
+dialog::backdrop{background:#000a}
+dialog form{display:grid;grid-template-rows:auto 1fr auto;max-height:inherit}
+dialog p{margin:0;padding:14px 14px 8px;color:var(--muted);font-size:13px}
+#pickList{overflow:auto;padding:0 14px;display:grid;gap:2px}
+#pickList label{display:flex;align-items:center;gap:10px;min-height:44px;color:var(--text);font-size:15px;cursor:pointer}
+#pickList input{width:20px;height:20px;min-height:0;accent-color:var(--blue)}
+dialog .buttons{padding:12px 14px;border-top:1px solid var(--line)}
+@media (min-width:760px){.controls{grid-template-columns:repeat(6,1fr)}#chart{height:400px}#markets{grid-template-columns:repeat(auto-fill,minmax(240px,1fr))}}
 </style>
 </head>
 <body>
@@ -54,10 +68,11 @@ details .controls{margin-top:8px}
   <section class="panel">
     <div class="controls">
       <label>Familia<select id="family"><option>Boom y Crash</option><option>Boom</option><option>Crash</option><option>Todos los sintéticos</option></select></label>
-      <label>Mercado<select id="market"><option>Todos</option></select></label>
+      <label>Mercados<button type="button" id="marketsBtn">Todos</button></label>
       <label>Alertas<select id="mode"><option>Spikes</option><option>Velas nuevas</option><option>Ambas</option></select></label>
       <label>Temporalidad<select id="period"><option value="60">M1</option><option value="300">M5</option><option value="900">M15</option><option value="1800">M30</option><option value="3600">H1</option><option value="14400">H4</option></select></label>
-      <label>Factor<input id="factor" type="number" min="2" max="100" step="0.5" value="8" inputmode="decimal"></label>
+      <label title="Un tick cuenta como spike si salta Factor veces más que el movimiento típico de los últimos 100 ticks. Bajo = más alertas; alto = solo spikes grandes.">Factor (sensibilidad)<input id="factor" type="number" min="2" max="100" step="0.5" value="8" inputmode="decimal"></label>
+      <label>Sonido<select id="sound"><option>Caja registradora</option><option>Sirena</option></select></label>
     </div>
     <details>
       <summary>Telegram y notificaciones</summary>
@@ -69,32 +84,47 @@ details .controls{margin-top:8px}
     </details>
     <div class="buttons" style="margin-top:10px">
       <button class="primary" id="startBtn">Iniciar radar</button>
+      <button id="beepBtn">Probar sonido</button>
       <button id="testTg">Probar Telegram</button>
       <button id="notifBtn">Activar notificaciones</button>
-      <button id="beepBtn">Probar sonido</button>
     </div>
   </section>
 
   <section class="panel" id="chartBox">
-    <div id="chartHead"><span id="chartName">Gráfico en vivo</span><span id="chartPrice" style="color:#2ecc71"></span></div>
-    <canvas id="chart" aria-label="Gráfico de precio en vivo"></canvas>
+    <div id="chartHead"><span id="chartName">Gráfico en vivo</span><span id="ohlc"></span>
+      <span class="zoom"><button type="button" id="zoomOut" aria-label="Alejar">−</button><button type="button" id="zoomIn" aria-label="Acercar">+</button></span></div>
+    <canvas id="chart" aria-label="Gráfico de velas en vivo"></canvas>
   </section>
 
   <section class="panel"><div id="markets"></div></section>
   <section class="panel"><pre id="log" aria-live="polite"></pre></section>
 </main>
 
+<dialog id="pick">
+  <form method="dialog">
+    <p>Marca los mercados de los que quieres alertas. Sin ninguno marcado se vigilan todos.</p>
+    <div id="pickList"></div>
+    <div class="buttons">
+      <button type="button" id="pickAll">Todos</button><button type="button" id="pickNone">Ninguno</button>
+      <button class="primary" id="pickOk" value="ok" style="margin-left:auto">Aceptar</button>
+    </div>
+  </form>
+</dialog>
+
 <script>
 'use strict';
 const WS_URL = 'wss://api.derivws.com/trading/v1/options/ws/public';
 const $ = id => document.getElementById(id);
-const FIELDS = ['family', 'market', 'mode', 'period', 'factor', 'token', 'chat'];
+const FIELDS = ['family', 'mode', 'period', 'factor', 'token', 'chat', 'sound'];
+const TF = { 60: '1m', 300: '5m', 900: '15m', 1800: '30m', 3600: '1h', 14400: '4h' };
 
 // ---- settings (this device only) ----
 let saved = {};
 try { saved = JSON.parse(localStorage.getItem('radar') || '{}'); } catch {}
-function save() { try { localStorage.setItem('radar', JSON.stringify(Object.fromEntries(FIELDS.map(k => [k, $(k).value])))); } catch {} }
-FIELDS.forEach(k => { if (saved[k] != null && k !== 'market') $(k).value = saved[k]; });
+let picked = Array.isArray(saved.markets) ? saved.markets.map(String) : [];  // market names chosen for alerts; empty = all
+function save() { try { localStorage.setItem('radar', JSON.stringify({ ...Object.fromEntries(FIELDS.map(k => [k, $(k).value])), markets: picked })); } catch {} }
+FIELDS.forEach(k => { if (saved[k] != null) $(k).value = saved[k]; });
+if (!$('sound').value) $('sound').value = 'Caja registradora';
 
 // ---- detector: same rule as radar.py ----
 const median = a => { const s = [...a].sort((x, y) => x - y), m = s.length >> 1; return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2; };
@@ -125,18 +155,40 @@ function symbols(list, fam) {
 }
 const dirOf = name => /boom/i.test(name) ? 1 : /crash/i.test(name) ? -1 : 0;
 
+// ---- alert sounds: same synthesis as radar.py, full scale + tanh compression ----
+const RATE = 22050;
+function seeded(s) { return () => { s |= 0; s = s + 0x6D2B79F5 | 0; let t = Math.imul(s ^ s >>> 15, 1 | s); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
+function cashRegister() {
+  const rnd = seeded(7), u = () => rnd() * 2 - 1, one = new Float32Array(Math.floor(RATE * 1.1));
+  for (const c of [0, 0.025, 0.05]) for (let i = 0; i < RATE * 0.04; i++) { const t = i / RATE; one[Math.floor(c * RATE) + i] += (1.2 * u() + 0.8 * Math.sin(2 * Math.PI * 140 * t)) * Math.exp(-t * 90); }
+  for (let k = 0; k < 14; k++) { const s = Math.floor((0.06 + rnd() * 0.44) * RATE), f = 4000 + rnd() * 3500; for (let i = 0; i < RATE * 0.06 && s + i < one.length; i++) { const t = i / RATE; one[s + i] += 0.35 * Math.sin(2 * Math.PI * f * t) * Math.exp(-t * 70); } }
+  for (const [start, f0] of [[0.07, 2093], [0.12, 2637]]) for (let i = 0; i < RATE; i++) {
+    const j = Math.floor(start * RATE) + i; if (j >= one.length) break; const t = i / RATE;
+    one[j] += Math.exp(-t * 3) * [[1, 1], [2.76, .55], [5.4, .35], [8.93, .2]].reduce((a, [r, g]) => a + g * Math.sin(2 * Math.PI * f0 * r * t), 0);
+  }
+  const out = new Float32Array(one.length * 2); out.set(one); out.set(one, one.length); return out;
+}
+function siren() { const n = Math.floor(RATE * 0.4), out = new Float32Array(n * 6); for (let k = 0; k < 6; k++) for (let i = 0; i < n; i++) out[k * n + i] = Math.min(1, i / 150, (n - i) / 150) * Math.sin(2 * Math.PI * (k % 2 ? 1400 : 950) * i / RATE); return out; }
+const SOUNDS = { 'Caja registradora': cashRegister, 'Sirena': siren };
+let audio, buffers = {};
+function play() {
+  try {
+    audio ||= new (window.AudioContext || window.webkitAudioContext)();
+    if (audio.state === 'suspended') audio.resume();
+    const kind = $('sound').value in SOUNDS ? $('sound').value : 'Caja registradora';
+    if (!buffers[kind]) {
+      const x = SOUNDS[kind](); let peak = 0; for (const v of x) peak = Math.max(peak, Math.abs(v));
+      const b = audio.createBuffer(1, x.length, RATE), d = b.getChannelData(0);
+      for (let i = 0; i < x.length; i++) d[i] = 0.98 * Math.tanh(5 * x[i] / (peak || 1)) / Math.tanh(5);  // loud: compressed to near full scale
+      buffers[kind] = b;
+    }
+    const src = audio.createBufferSource(); src.buffer = buffers[kind]; src.connect(audio.destination); src.start();
+  } catch {}
+}
+
 // ---- UI helpers ----
 function note(s) { const l = $('log'); l.textContent = s + '\n' + l.textContent.slice(0, 8000); }
 function setStatus(s, state) { $('status').textContent = s; $('dot').className = 'dot ' + (state || ''); }
-let audio;
-function beep() {
-  try {
-    audio = audio || new (window.AudioContext || window.webkitAudioContext)();
-    const o = audio.createOscillator(), g = audio.createGain();
-    o.frequency.value = 880; g.gain.setValueAtTime(0.25, audio.currentTime); g.gain.exponentialRampToValueAtTime(0.001, audio.currentTime + 0.35);
-    o.connect(g).connect(audio.destination); o.start(); o.stop(audio.currentTime + 0.35);
-  } catch {}
-}
 async function notify(title, body, tag) {
   if (!('Notification' in window) || Notification.permission !== 'granted') return;
   try { const r = await navigator.serviceWorker?.ready; if (r) return r.showNotification(title, { body, tag, renotify: true, icon: 'icon-192.png' }); } catch {}
@@ -146,27 +198,40 @@ async function tg(tok, method, params) {  // form-encoded = no CORS preflight; T
   const r = await fetch(`https://api.telegram.org/bot${encodeURIComponent(tok)}/${method}`, { method: 'POST', body: new URLSearchParams(params || {}) });
   const j = await r.json(); if (!j.ok) throw new Error(j.description || 'error'); return j;
 }
-const fmt = t => { const d = new Date(t * 1000), z = n => String(n).padStart(2, '0'); return `${d.getFullYear()}-${z(d.getMonth() + 1)}-${z(d.getDate())} ${z(d.getHours())}:${z(d.getMinutes())}:${z(d.getSeconds())}`; };
+const z2 = n => String(n).padStart(2, '0');
+const fmt = t => { const d = new Date(t * 1000); return `${d.getFullYear()}-${z2(d.getMonth() + 1)}-${z2(d.getDate())} ${z2(d.getHours())}:${z2(d.getMinutes())}:${z2(d.getSeconds())}`; };
 
-// ---- market catalog for the selector ----
+// ---- market catalog + checkbox picker ----
 let catalog = [];
-function refreshMarkets() {
-  const names = [...new Set(symbols(catalog, $('family').value).map(x => x[1]))].sort();
-  const want = $('market').value !== 'Todos' ? $('market').value : saved.market;
-  $('market').replaceChildren(...['Todos', ...names].map(n => new Option(n, n)));
-  $('market').value = names.includes(want) ? want : 'Todos';
-}
-$('family').onchange = refreshMarkets;
+const familyNames = () => [...new Set(symbols(catalog, $('family').value).map(x => x[1]))].sort();
+function labelMarkets() { $('marketsBtn').textContent = !picked.length ? 'Todos' : picked.length === 1 ? picked[0] : `${picked.length} seleccionados`; }
+labelMarkets();
 (function loadCatalog() {
   const ws = new WebSocket(WS_URL);
   ws.onopen = () => ws.send(JSON.stringify({ active_symbols: 'brief' }));
-  ws.onmessage = e => { const d = JSON.parse(e.data); if (d.active_symbols) { catalog = d.active_symbols; refreshMarkets(); } ws.close(); };
+  ws.onmessage = e => { const d = JSON.parse(e.data); if (d.active_symbols) catalog = d.active_symbols; ws.close(); };
   ws.onerror = () => note('No se pudo cargar la lista de mercados; revisa tu conexión.');
 })();
+$('marketsBtn').onclick = () => {
+  const names = familyNames();
+  if (!names.length) { alert('La lista de mercados aún no carga; espera unos segundos.'); return; }
+  $('pickList').replaceChildren(...names.map(n => {
+    const l = document.createElement('label'), c = document.createElement('input');
+    c.type = 'checkbox'; c.value = n; c.checked = picked.includes(n); l.append(c, n); return l;
+  }));
+  $('pick').showModal();
+};
+const boxes = () => [...$('pickList').querySelectorAll('input')];
+$('pickAll').onclick = () => boxes().forEach(b => b.checked = true);
+$('pickNone').onclick = () => boxes().forEach(b => b.checked = false);
+$('pick').onclose = () => {
+  if ($('pick').returnValue !== 'ok') return;
+  picked = boxes().filter(b => b.checked).map(b => b.value); labelMarkets(); save(); restart();
+};
 
 // ---- radar ----
-let ws = null, running = false, delay = 1000, pingTimer = null, wakeLock = null, retryTimer = null;
-let names = {}, detectors = {}, hist = {}, rows = {}, chartSym = null, dirty = false, opts = {};
+let ws = null, gen = 0, running = false, delay = 1000, pingTimer = null, wakeLock = null, retryTimer = null;
+let names = {}, detectors = {}, candles = {}, spikes = {}, rows = {}, chartSym = null, dirty = false, opts = {}, barW = 9;
 
 function rowFor(sym) {
   if (rows[sym]) return rows[sym];
@@ -179,48 +244,60 @@ function rowFor(sym) {
   return el;
 }
 function alertEvent(sym, ev, msg) {
-  note(msg); beep();
+  note(msg); play();
   const e = rowFor(sym).querySelector('.e'); e.textContent = ev; e.classList.toggle('spike', ev.startsWith('SPIKE'));
-  if (ev.startsWith('SPIKE') && hist[sym]?.length) { hist[sym].at(-1)[1] = true; dirty ||= sym === chartSym; }
+  if (ev.startsWith('SPIKE') && candles[sym]?.length) { (spikes[sym] ||= new Set()).add(candles[sym].at(-1)[0]); dirty ||= sym === chartSym; }
   notify(ev + ' · ' + names[sym], msg, sym);
   if (opts.tok && opts.chat) tg(opts.tok, 'sendMessage', { chat_id: opts.chat, text: msg }).catch(() => note('Telegram: envío fallido; revisa token o conexión.'));
 }
-function onMessage(e) {
-  const d = JSON.parse(e.data);
+function onMessage(d) {
+  const sec = opts.period;
   if (d.error) { note(d.error.message || 'Error API'); return; }
   if (d.active_symbols) {
-    for (const [sym, name] of symbols(d.active_symbols, opts.family)) if (!names[sym] && (!opts.only || sym === opts.only)) { names[sym] = name; detectors[sym] = new Detector(); }
+    for (const [sym, name] of symbols(d.active_symbols, opts.family)) if (!names[sym] && (!opts.only.size || opts.only.has(sym))) { names[sym] = name; detectors[sym] = new Detector(); }
     const syms = Object.keys(names);
     if (!syms.length) { note('No se encontraron mercados compatibles'); return; }
-    syms.forEach(sym => ws.send(JSON.stringify({ ticks_history: sym, count: 300, end: 'latest', style: 'ticks', subscribe: 1 })));  // history first, then live ticks
+    for (const sym of syms) {
+      ws.send(JSON.stringify({ ticks_history: sym, count: 300, end: 'latest', style: 'ticks', subscribe: 1 }));  // history first, then live ticks
+      ws.send(JSON.stringify({ ticks_history: sym, count: 150, end: 'latest', style: 'candles', granularity: sec }));  // chart candles; live ticks extend them
+    }
     setStatus(`Conectado: ${syms.length} mercado(s)`, 'on'); delay = 1000;
   } else if (d.history) {
     const sym = d.echo_req?.ticks_history, det = detectors[sym];
     if (det && det.prev === null) {  // calibrate + mark past spikes, no alerts
-      const dir = dirOf(names[sym]);
-      hist[sym] = d.history.prices.map((p, i) => [+p, det.update(+p, +d.history.times[i], opts.period, opts.factor, dir).spike]).slice(-300);
+      const dir = dirOf(names[sym]), set = spikes[sym] ||= new Set();
+      d.history.prices.forEach((p, i) => { const t = +d.history.times[i]; if (det.update(+p, t, sec, opts.factor, dir).spike) set.add(Math.floor(t / sec) * sec); });
       rowFor(sym); dirty ||= sym === chartSym;
     }
+  } else if (d.candles) {
+    const sym = d.echo_req?.ticks_history; if (!names[sym]) return;
+    const cs = d.candles.map(c => [+c.epoch, +c.open, +c.high, +c.low, +c.close]), old = candles[sym] || [];
+    candles[sym] = cs.concat(old.filter(x => cs.length && x[0] > cs.at(-1)[0]));  // keep live candles newer than the history
+    rowFor(sym); dirty ||= sym === chartSym;
   } else if (d.tick) {
     const sym = d.tick.symbol || d.tick.underlying_symbol, det = detectors[sym]; if (!det) return;
     const p = +d.tick.quote, t = +d.tick.epoch, dir = dirOf(names[sym]);
-    const { isNew, spike, delta, count } = det.update(p, t, opts.period, opts.factor, dir);
-    const h = hist[sym] ||= []; h.push([p, false]); if (h.length > 300) h.shift();
+    const { isNew, spike, delta, count } = det.update(p, t, sec, opts.factor, dir);
+    const cs = candles[sym] ||= [], b = Math.floor(t / sec) * sec, last = cs.at(-1);
+    if (last && last[0] === b) { last[2] = Math.max(last[2], p); last[3] = Math.min(last[3], p); last[4] = p; }
+    else if (!last || b > last[0]) { cs.push([b, p, p, p, p]); if (cs.length > 300) cs.shift(); }
     const r = rowFor(sym); r.querySelector('.p').textContent = p; r.querySelector('.c').textContent = det.count + ' ticks desde spike';
     dirty ||= sym === chartSym;
     const evs = [];
     if (spike && opts.mode !== 'Velas nuevas') evs.push('SPIKE ' + (dir === 1 ? 'ALCISTA' : 'BAJISTA'));
-    if (isNew && opts.mode !== 'Spikes') evs.push('NUEVA VELA ' + opts.period / 60 + ' min');
+    if (isNew && opts.mode !== 'Spikes') evs.push('NUEVA VELA ' + sec / 60 + ' min');
     for (const ev of evs) alertEvent(sym, ev, `${fmt(t)} | ${names[sym]} | ${ev} | Precio ${p} | Cambio ${+delta.toPrecision(6)} | Ticks ${count}`);
   }
 }
 function connect() {
+  const my = gen;  // handlers of a replaced socket must not touch the new run
   setStatus('Conectando…', 'wait');
-  ws = new WebSocket(WS_URL);
-  ws.onopen = () => { ws.send(JSON.stringify({ active_symbols: 'full' })); pingTimer = setInterval(() => ws.readyState === 1 && ws.send('{"ping":1}'), 30000); };  // Deriv drops silent clients at ~2 min
-  ws.onmessage = onMessage;
-  ws.onclose = () => {
-    clearInterval(pingTimer); names = {}; detectors = {};
+  const sock = ws = new WebSocket(WS_URL);
+  sock.onopen = () => { if (my !== gen) return sock.close(); sock.send(JSON.stringify({ active_symbols: 'full' })); pingTimer = setInterval(() => sock.readyState === 1 && sock.send('{"ping":1}'), 30000); };  // Deriv drops silent clients at ~2 min
+  sock.onmessage = e => { if (my === gen) onMessage(JSON.parse(e.data)); };
+  sock.onclose = () => {
+    clearInterval(pingTimer); if (my !== gen) return;
+    names = {}; detectors = {};
     if (!running) { setStatus('Detenido'); return; }
     setStatus('Sin conexión; reintentando', 'wait'); retryTimer = setTimeout(connect, delay); delay = Math.min(delay * 2, 30000);
   };
@@ -233,23 +310,25 @@ function start() {
   if (!(f >= 2 && f <= 100)) { alert('Factor: usa un número entre 2 y 100'); return; }
   const tok = $('token').value.trim(), chat = $('chat').value.trim();
   if (!!tok !== !!chat) { alert('Telegram: pulsa "Probar Telegram" para rellenar el Chat ID, o deja ambos vacíos.'); return; }
-  let only = '';
-  if ($('market').value !== 'Todos') {
-    only = (symbols(catalog, $('family').value).find(x => x[1] === $('market').value) || [])[0];
-    if (!only) { alert('La lista de mercados aún no carga; espera unos segundos o elige Todos.'); return; }
-  }
-  save(); beep();
+  const only = new Set(picked.length ? symbols(catalog, $('family').value).filter(x => picked.includes(x[1])).map(x => x[0]) : []);
+  if (picked.length && !only.size) { alert('La lista de mercados aún no carga; espera unos segundos.'); return; }
+  save(); play();
   opts = { family: $('family').value, only, mode: $('mode').value, period: +$('period').value, factor: f, tok, chat };
-  hist = {}; rows = {}; chartSym = null; $('markets').replaceChildren(); dirty = true;
+  gen++; clearTimeout(retryTimer); clearInterval(pingTimer); ws?.close();
+  names = {}; detectors = {}; candles = {}; spikes = {}; rows = {}; chartSym = null; $('markets').replaceChildren(); dirty = true;
   running = true; delay = 1000; connect(); keepAwake();
   $('startBtn').textContent = 'Detener'; $('startBtn').className = 'stop';
 }
 function stop() {
-  running = false; clearTimeout(retryTimer); ws?.close(); wakeLock?.release?.(); wakeLock = null;
-  $('startBtn').textContent = 'Iniciar radar'; $('startBtn').className = 'primary';
+  running = false; gen++; clearTimeout(retryTimer); clearInterval(pingTimer); ws?.close(); wakeLock?.release?.(); wakeLock = null;
+  setStatus('Detenido'); $('startBtn').textContent = 'Iniciar radar'; $('startBtn').className = 'primary';
 }
+function restart() { if (running) start(); }  // selector changed while running: apply it right away
+$('family').onchange = () => { if (catalog.length) { picked = picked.filter(n => familyNames().includes(n)); labelMarkets(); } save(); restart(); };
+['mode', 'period'].forEach(k => $(k).onchange = () => { save(); restart(); });
+$('sound').onchange = () => { save(); play(); };
 $('startBtn').onclick = () => running ? stop() : start();
-$('beepBtn').onclick = beep;
+$('beepBtn').onclick = play;
 $('notifBtn').onclick = async () => {
   if (!('Notification' in window)) { note('Este navegador no admite notificaciones. En iPhone: instala la app (Compartir → Añadir a inicio) y ábrela desde el icono.'); return; }
   const p = await Notification.requestPermission();
@@ -271,26 +350,42 @@ $('testTg').onclick = async () => {
   } catch (e) { note('Telegram: falló la prueba (' + e.message + '). Revisa el token.'); }
 };
 
-// ---- chart ----
-const cv = $('chart'), cx = cv.getContext('2d');
+// ---- candlestick chart (TradingView look) ----
+const cv = $('chart'), cx = cv.getContext('2d'), css = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+const C = { bg: css('--tv-bg'), grid: css('--tv-grid'), axis: css('--tv-axis'), up: css('--tv-up'), down: css('--tv-down'), mark: css('--tv-mark') };
 function draw() {
   const dpr = window.devicePixelRatio || 1, w = cv.clientWidth, h = cv.clientHeight;
-  if (cv.width !== w * dpr || cv.height !== h * dpr) { cv.width = w * dpr; cv.height = h * dpr; }
-  cx.setTransform(dpr, 0, 0, dpr, 0, 0); cx.clearRect(0, 0, w, h);
-  const data = hist[chartSym];
-  $('chartName').textContent = names[chartSym] || 'Gráfico en vivo';
-  if (!data || data.length < 2) { cx.fillStyle = '#6c8796'; cx.font = '14px system-ui'; cx.textAlign = 'center'; cx.fillText(running ? 'Esperando datos…' : 'Pulsa Iniciar radar', w / 2, h / 2); $('chartPrice').textContent = ''; return; }
-  const ps = data.map(x => x[0]), lo = Math.min(...ps), hi = Math.max(...ps), rng = (hi - lo) || 1, top = 14, bot = 14, right = 78;
-  const X = i => 8 + i * (w - right - 8) / (data.length - 1), Y = p => top + (hi - p) * (h - top - bot) / rng;
-  cx.font = '11px Consolas,monospace'; cx.textAlign = 'left'; cx.textBaseline = 'middle';
-  for (let k = 0; k < 5; k++) { const y = top + k * (h - top - bot) / 4; cx.strokeStyle = '#16232e'; cx.beginPath(); cx.moveTo(8, y); cx.lineTo(w - right, y); cx.stroke(); cx.fillStyle = '#6c8796'; cx.fillText((hi - k * rng / 4).toFixed(3), w - right + 6, y); }
-  cx.strokeStyle = '#3fb6ff'; cx.lineWidth = 2; cx.beginPath(); ps.forEach((p, i) => i ? cx.lineTo(X(i), Y(p)) : cx.moveTo(X(i), Y(p))); cx.stroke();
-  cx.strokeStyle = '#ff4d4d'; data.forEach(([p, s], i) => { if (s) { cx.beginPath(); cx.arc(X(i), Y(p), 6, 0, 7); cx.stroke(); } });
-  const y = Y(ps.at(-1)); cx.fillStyle = '#1f8a4c'; cx.fillRect(w - right + 2, y - 9, right - 4, 18); cx.fillStyle = '#fff'; cx.fillText(ps.at(-1).toFixed(3), w - right + 6, y);
-  $('chartPrice').textContent = ps.at(-1).toFixed(3);
+  if (cv.width !== Math.round(w * dpr) || cv.height !== Math.round(h * dpr)) { cv.width = Math.round(w * dpr); cv.height = Math.round(h * dpr); }
+  cx.setTransform(dpr, 0, 0, dpr, 0, 0); cx.fillStyle = C.bg; cx.fillRect(0, 0, w, h);
+  const cs = candles[chartSym] || [];
+  $('chartName').textContent = (names[chartSym] || 'Gráfico en vivo') + (running ? '  ·  ' + TF[opts.period] : '');
+  if (!cs.length) { $('ohlc').textContent = ''; cx.fillStyle = C.axis; cx.font = '14px system-ui'; cx.textAlign = 'center'; cx.fillText(running ? 'Esperando velas…' : 'Pulsa Iniciar radar', w / 2, h / 2); return; }
+  const [, o, hi0, lo0, c] = cs.at(-1); $('ohlc').textContent = `O ${o.toFixed(3)}  H ${hi0.toFixed(3)}  L ${lo0.toFixed(3)}  C ${c.toFixed(3)}`; $('ohlc').style.color = c >= o ? C.up : C.down;
+  const top = 10, bot = 22, right = 74, left = 6, step = barW + Math.max(2, barW * 0.4);
+  const vis = cs.slice(-Math.max(2, Math.floor((w - right - left) / step)));
+  let lo = Math.min(...vis.map(x => x[3])), hi = Math.max(...vis.map(x => x[2])); const pad = (hi - lo) * 0.06 || 1; lo -= pad; hi += pad;
+  const Y = p => top + (hi - p) * (h - top - bot) / (hi - lo), X = i => left + i * step + step / 2;
+  cx.font = '11px Consolas,monospace'; cx.textBaseline = 'middle'; cx.lineWidth = 1;
+  for (let k = 0; k < 6; k++) { const p = hi - k * (hi - lo) / 5, y = Math.round(Y(p)) + .5; cx.strokeStyle = C.grid; cx.beginPath(); cx.moveTo(left, y); cx.lineTo(w - right, y); cx.stroke(); cx.fillStyle = C.axis; cx.textAlign = 'left'; cx.fillText(p.toFixed(3), w - right + 6, y); }
+  const every = Math.max(1, Math.floor(110 / step)); cx.textAlign = 'center';
+  vis.forEach(([e], i) => { if (Math.floor(e / opts.period) % every === 0) { const x = Math.round(X(i)) + .5; cx.strokeStyle = C.grid; cx.beginPath(); cx.moveTo(x, top); cx.lineTo(x, h - bot); cx.stroke(); const d = new Date(e * 1000); cx.fillStyle = C.axis; cx.fillText(z2(d.getHours()) + ':' + z2(d.getMinutes()), x, h - bot + 11); } });
+  const boom = dirOf(names[chartSym] || '') === 1, marks = spikes[chartSym] || new Set();
+  vis.forEach(([e, o, hh, ll, c], i) => {
+    const x = X(i), col = c >= o ? C.up : C.down; cx.strokeStyle = cx.fillStyle = col;
+    cx.beginPath(); cx.moveTo(Math.round(x) + .5, Y(hh)); cx.lineTo(Math.round(x) + .5, Y(ll)); cx.stroke();
+    const y1 = Y(Math.max(o, c)), y2 = Y(Math.min(o, c)); cx.fillRect(x - barW / 2, y1, barW, Math.max(1, y2 - y1));
+    if (marks.has(e)) { cx.fillStyle = C.mark; cx.font = 'bold 12px system-ui'; cx.fillText(boom ? '▼' : '▲', x, boom ? Y(hh) - 9 : Y(ll) + 9); cx.font = '11px Consolas,monospace'; }
+  });
+  const lastC = vis.at(-1), col = lastC[4] >= lastC[1] ? C.up : C.down, y = Y(lastC[4]);
+  cx.strokeStyle = col; cx.setLineDash([2, 3]); cx.beginPath(); cx.moveTo(left, y); cx.lineTo(w - right, y); cx.stroke(); cx.setLineDash([]);
+  cx.fillStyle = col; cx.fillRect(w - right + 1, y - 9, right - 2, 18); cx.fillStyle = '#fff'; cx.textAlign = 'left'; cx.font = 'bold 11px Consolas,monospace'; cx.fillText(lastC[4].toFixed(3), w - right + 5, y);
 }
+const zoom = d => { barW = Math.max(1, Math.min(30, barW + d)); dirty = true; };
+$('zoomIn').onclick = () => zoom(2); $('zoomOut').onclick = () => zoom(-2);
+cv.addEventListener('wheel', e => { e.preventDefault(); zoom(e.deltaY < 0 ? 1 : -1); }, { passive: false });
 (function loop() { if (dirty) { dirty = false; draw(); } requestAnimationFrame(loop); })();
 window.addEventListener('resize', () => dirty = true);
+dirty = true;
 
 if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
 </script>
